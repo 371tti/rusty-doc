@@ -585,6 +585,7 @@
         const months = getMonthsFromNow(24);
         let isLoading = false;
         let noMoreArticles = false;
+        let currentApiPage = 1; // API用ページ番号（スクロール時に使用）
         
         // 現在時刻から過去N月分の組み合わせを取得
         function getMonthsFromNow(numberOfMonths) {
@@ -632,13 +633,18 @@
                 }
                 
                 const monthInfo = months[currentMonthIndex];
-                const hasArticles = await loadArticlesForMonth(monthInfo);
+                // ページングAPIを使用（スクロール時は常にcurrentApiPageを使用）
+                const hasArticles = await loadArticlesForMonth(monthInfo, currentApiPage);
                 
                 if (hasArticles) {
                     articlesFound = true;
+                    // 次のページへ
+                    currentApiPage++;
+                } else {
+                    // 記事がない場合は次の月へ移動し、ページをリセット
+                    currentMonthIndex++;
+                    currentApiPage = 1;
                 }
-                
-                currentMonthIndex++;
             }
             
             isLoading = false;
@@ -657,26 +663,30 @@
         }
         
         // 特定の月の記事を読み込む（ページング対応）
-        async function loadArticlesForMonth(monthInfo) {
+        async function loadArticlesForMonth(monthInfo, apiPage = 1) {
             try {
                 // APIクエリパラメータでページングを指定
-                const response = await fetch(`/articles/${monthInfo.apiPath}?page=${currentPage}&per_page=${perPage}`);
+                const response = await fetch(`/articles/${monthInfo.apiPath}?page=${apiPage}&per_page=${perPage}`);
                 if (!response.ok) return false;
                 
                 const data = await response.json();
                 if (data.articles.length === 0) return false;
                 
-                // ページネーションの設定
-                updatePagination(data.total_pages || Math.ceil(data.articles.length / perPage));
-                
-                // 月のヘッダーを追加
-                const monthHeader = document.createElement('div');
-                monthHeader.className = 'date-header';
-                if (articleList.children.length === 0 || articleList.firstChild.className === 'loading') {
-                    monthHeader.classList.add('first-date-header');
+                // ページネーションUIの設定（UI上でページングする場合）
+                if (apiPage === 1) {
+                    updatePagination(data.total_pages || Math.ceil(data.articles.length / perPage));
                 }
-                monthHeader.textContent = monthInfo.display;
-                articleList.appendChild(monthHeader);
+                
+                // 無限スクロールの場合は月のヘッダーを追加（最初のページのみ）
+                if (apiPage === 1) {
+                    const monthHeader = document.createElement('div');
+                    monthHeader.className = 'date-header';
+                    if (articleList.children.length === 0 || articleList.firstChild.className === 'loading') {
+                        monthHeader.classList.add('first-date-header');
+                    }
+                    monthHeader.textContent = monthInfo.display;
+                    articleList.appendChild(monthHeader);
+                }
                 
                 // 記事リストを追加
                 for (const article of data.articles) {
@@ -684,6 +694,7 @@
                     const isFavorite = checkIsFavorite(fullPath);
                     const div = document.createElement('div');
                     div.className = 'article-item';
+                    div.dataset.articleId = fullPath; // 記事の一意のIDを設定
                     
                     // 記事プレビューを取得
                     const preview = await getArticlePreview(monthInfo.year, monthInfo.month, article);
@@ -694,7 +705,7 @@
                             <div class="article-preview">${preview}...</div>
                         </div>
                         <div class="article-actions">
-                            <button class="favorite ${isFavorite ? 'active' : ''}" data-article="${fullPath}" aria-label="お気に入りに${isFavorite ? '追加済み' : '追加'}">
+                            <button class="favorite ${isFavorite ? 'active' : ''}" data-article="${fullPath}">
                                 ${isFavorite ? '★' : '☆'}
                             </button>
                             <button class="view" data-article="${article}" data-year="${monthInfo.year}" data-month="${monthInfo.month}" data-date="${monthInfo.display}">
@@ -780,9 +791,13 @@
         // 現在の月の記事を再読み込み（ページ切り替え時）
         function reloadCurrentArticles() {
             articleList.innerHTML = '<div class="loading"></div>';
+            // ページング用の変数をリセット
+            currentApiPage = 1;
+            
             if (currentMonthIndex > 0) {
-                loadArticlesForMonth(months[currentMonthIndex - 1]);
+                loadArticlesForMonth(months[currentMonthIndex - 1], 1);
             } else {
+                currentMonthIndex = 0;
                 loadMoreArticles();
             }
         }
@@ -851,30 +866,42 @@
                         ${dateDisplay}
                     `;
                     
-                    // お気に入りボタンの追加とスタイル修正
+                    // お気に入りボタンを完全に作り直す
                     const fullPath = `${year}/${month}/${filename}`;
                     const isFavorite = checkIsFavorite(fullPath);
-                    const favoriteBtn = document.createElement('button');
-                    favoriteBtn.className = `favorite article-favorite-btn ${isFavorite ? 'active' : ''}`;
-                    favoriteBtn.dataset.article = fullPath;
-                    favoriteBtn.innerHTML = isFavorite ? '★' : '☆';
-                    favoriteBtn.addEventListener('click', (e) => {
-                        const article = e.target.dataset.article;
-                        toggleFavorite(article, e.target, true);
-                    });
                     
                     // ヘッダーにボタンを追加
                     const articleMeta = document.querySelector('.article-meta');
-                    if (articleMeta.querySelector('.article-favorite-btn')) {
-                        articleMeta.querySelector('.article-favorite-btn').remove();
+                    
+                    // 既存のコンテナを削除
+                    const existingContainer = articleMeta.querySelector('.article-favorite-container');
+                    if (existingContainer) {
+                        existingContainer.remove();
                     }
                     
+                    // 新しいコンテナを作成
                     const favContainer = document.createElement('div');
                     favContainer.className = 'article-favorite-container';
                     favContainer.innerHTML = `
+                        <button class="favorite article-favorite-btn ${isFavorite ? 'active' : ''}" data-article="${fullPath}">
+                            ${isFavorite ? '★' : '☆'}
+                        </button>
                         <span class="favorite-label">${isFavorite ? 'お気に入りから削除' : 'お気に入りに追加'}</span>
                     `;
-                    favContainer.prepend(favoriteBtn);
+                    
+                    // お気に入りボタンのイベントリスナーを設定
+                    const favBtn = favContainer.querySelector('.favorite');
+                    favBtn.addEventListener('click', () => {
+                        const newIsFavorite = !checkIsFavorite(fullPath);
+                        toggleFavoriteState(fullPath, newIsFavorite);
+                        
+                        // ボタンとラベルを更新
+                        favBtn.textContent = newIsFavorite ? '★' : '☆';
+                        favBtn.classList.toggle('active', newIsFavorite);
+                        favContainer.querySelector('.favorite-label').textContent = 
+                            newIsFavorite ? 'お気に入りから削除' : 'お気に入りに追加';
+                    });
+                    
                     articleMeta.appendChild(favContainer);
                     
                     // ビューアーモードに切り替え
@@ -892,31 +919,84 @@
             }
         }
         
+        // お気に入り状態を変更する（状態管理とUI更新を分離）
+        function toggleFavoriteState(article, isFavorite = null) {
+            let favorites = getFavorites();
+            const currentIsFavorite = favorites.includes(article);
+            
+            // isFavoriteが指定されていない場合は現在の状態を反転
+            const newIsFavorite = isFavorite !== null ? isFavorite : !currentIsFavorite;
+            
+            if (newIsFavorite && !currentIsFavorite) {
+                favorites.push(article);
+            } else if (!newIsFavorite && currentIsFavorite) {
+                favorites = favorites.filter(fav => fav !== article);
+            }
+            
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+            
+            // UI全体を更新
+            updateAllFavoriteButtons(article, newIsFavorite);
+            updateFavoritesList();
+            
+            return newIsFavorite;
+        }
+        
+        // すべてのお気に入りボタンを更新
+        function updateAllFavoriteButtons(article, isFavorite) {
+            // 記事リスト内のすべてのお気に入りボタンを更新
+            document.querySelectorAll(`.favorite[data-article="${article}"]`).forEach(btn => {
+                btn.textContent = isFavorite ? '★' : '☆';
+                if (isFavorite) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+            
+            // 記事ビューア内のお気に入りボタンとラベルも更新
+            const articleFavBtn = document.querySelector('.article-favorite-btn');
+            if (articleFavBtn && articleFavBtn.dataset.article === article) {
+                articleFavBtn.textContent = isFavorite ? '★' : '☆';
+                if (isFavorite) {
+                    articleFavBtn.classList.add('active');
+                } else {
+                    articleFavBtn.classList.remove('active');
+                }
+                
+                const label = articleFavBtn.nextElementSibling;
+                if (label && label.className === 'favorite-label') {
+                    label.textContent = isFavorite ? 'お気に入りから削除' : 'お気に入りに追加';
+                }
+            }
+        }
+        
+        // 既存のtoggleFavorite関数を置き換える
+        function toggleFavorite(article, buttonEl, isArticleView = false) {
+            toggleFavoriteState(article);
+        }
+        
         // 記事のボタン設定
         function setupArticleButtons() {
             // お気に入りボタン
-            document.querySelectorAll('.favorite').forEach(button => {
-                if (!button.hasListener) {
-                    button.addEventListener('click', (e) => {
-                        const article = e.target.dataset.article;
-                        toggleFavorite(article, e.target);
-                    });
-                    button.hasListener = true;
-                }
+            document.querySelectorAll('.favorite:not(.has-listener)').forEach(button => {
+                button.classList.add('has-listener');
+                button.addEventListener('click', (e) => {
+                    const article = e.target.dataset.article;
+                    toggleFavoriteState(article);
+                });
             });
 
             // 記事表示ボタン
-            document.querySelectorAll('.view').forEach(button => {
-                if (!button.hasListener) {
-                    button.addEventListener('click', async (e) => {
-                        const article = e.target.dataset.article;
-                        const year = e.target.dataset.year;
-                        const month = e.target.dataset.month;
-                        const dateDisplay = e.target.dataset.date;
-                        await viewArticle(year, month, article, dateDisplay);
-                    });
-                    button.hasListener = true;
-                }
+            document.querySelectorAll('.view:not(.has-listener)').forEach(button => {
+                button.classList.add('has-listener');
+                button.addEventListener('click', async (e) => {
+                    const article = e.target.dataset.article;
+                    const year = e.target.dataset.year;
+                    const month = e.target.dataset.month;
+                    const dateDisplay = e.target.dataset.date;
+                    await viewArticle(year, month, article, dateDisplay);
+                });
             });
         }
         
@@ -1145,6 +1225,7 @@
         // 初期化
         function init() {
             articleList.innerHTML = '';
+            currentApiPage = 1; // APIページをリセット
             loadMoreArticles(); // 最初のバッチをロード
             updateFavoritesList();
             setupInfiniteScroll(); // スクロール監視を設定
