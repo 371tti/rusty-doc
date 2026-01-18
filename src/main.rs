@@ -1,100 +1,159 @@
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
-use actix_web::http::header::{Header, Range};
-use serde_json::json;
-use std::collections::HashMap;
-use std::fs;
-use std::io::{Read, Seek, SeekFrom};
-use std::fs::File;
 
-mod dashboard;
 
-async fn list_articles_by_month(
-    path: web::Path<(String, String)>,
-    query: web::Query<HashMap<String, String>>,
-) -> impl Responder {
-    let (year, month) = path.into_inner();
-    // 月のフォーマットを正規化（先頭の0を削除）
-    let normalized_month = month.trim_start_matches('0');
-    let base_path = format!("./data/{}/{}", year, normalized_month);
-    let page: usize = query.get("page").and_then(|p| p.parse().ok()).unwrap_or(1);
-    let per_page: usize = query.get("per_page").and_then(|p| p.parse().ok()).unwrap_or(10);
+use kurosabi::{connection::file::{DirEntryInfo, FileContentBuilder}, http::{HttpMethod, HttpStatusCode}, server::tokio::KurosabiTokioServerBuilder, utils::url_encode};
+use rusty_doc::render::md_to_html_gfm_highlight;
+use tokio::io::AsyncReadExt;
 
-    let mut articles = Vec::new();
-    if let Ok(files) = fs::read_dir(&base_path) {
-        for file_entry in files.flatten() {
-            if let Some(article_name) = file_entry.file_name().to_str() {
-                articles.push(article_name.to_string());
-            }
-        }
-    }
+pub const BASE_DIR: &str = "./data/";
 
-    let start = (page - 1) * per_page;
-    let end = start + per_page;
-    let paginated_articles = articles[start.min(articles.len())..end.min(articles.len())].to_vec();
-
-    HttpResponse::Ok().json(json!({ "articles": paginated_articles }))
-}
-
-async fn get_article_raw(
-    path: web::Path<(String, String, String)>,
-    req: HttpRequest,
-) -> impl Responder {
-    let (year, month, article) = path.into_inner();
-    // 月のフォーマットを正規化（先頭の0を削除）
-    let normalized_month = month.trim_start_matches('0');
-    let file_path = format!("./data/{}/{}/{}", year, normalized_month, article);
-
-    if let Ok(mut file) = File::open(&file_path) {
-        let metadata = file.metadata().ok();
-        let file_size = metadata.map(|m| m.len()).unwrap_or(0);
-
-        if let Some(range_header) = req.headers().get("Range") {
-            if let Ok(range) = range_header.to_str() {
-                if let Some(range) = range.strip_prefix("bytes=") {
-                    let parts: Vec<&str> = range.split('-').collect();
-                    if let (Some(start), Some(end)) = (parts.get(0), parts.get(1)) {
-                        if let (Ok(start), Ok(end)) = (start.parse::<u64>(), end.parse::<u64>()) {
-                            if start < file_size && end < file_size {
-                                let mut buffer = vec![0; (end - start + 1) as usize];
-                                file.seek(SeekFrom::Start(start)).ok();
-                                file.read_exact(&mut buffer).ok();
-                                return HttpResponse::PartialContent()
-                                    .insert_header(("Content-Range", format!("bytes {}-{}/{}", start, end, file_size)))
-                                    .body(buffer);
+#[tokio::main]
+async fn main() -> std::io::Result<()> {
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+    KurosabiTokioServerBuilder::default()
+        .bind([0, 0, 0, 0])
+        .port(85)
+        .router_and_build(|conn| async move {
+            match conn.req.method() {
+                HttpMethod::GET => {
+                    match conn.path_segs().as_ref() {
+                        ["raw", path @ ..] => {
+                            let content = FileContentBuilder::base(BASE_DIR).path_url_segs(path).inline();
+                            conn.file_body(content).await.unwrap_or_else(|p| p.connection)
+                        }
+                        ["menu.js"] => conn.js_body(include_str!("../data/static/menu.js")),
+                        ["style.css"] => conn.css_body(include_str!("../data/static/style.css")),
+                        ["code-tool.js"] => conn.js_body(include_str!("../data/static/code-tool.js")),
+                        ["optimizer.js"] => conn.js_body(include_str!("../data/static/optimizer.js")),
+                        ["load-screen.js"] => conn.js_body(include_str!("../data/static/load-screen.js")),
+                        ["manifest.json"] => conn.json_body(include_str!("../data/static/manifest.json")),
+                        ["favicon.ico"] => conn.add_header("Content-Type", "image/x-icon")
+                            .binary_body(include_bytes!("../data/static/favicon.ico")),
+                        ["icon.png"] => conn.png_body(include_bytes!("../data/static/icon.png")),
+                        [path @ ..] => {
+                            match docs_routing(path).await {
+                                Ok(Some(html)) => conn.html_body(html),
+                                Ok(None) => {
+                                    let redirect_path = "/raw/".to_string() + &path.join("/");
+                                    conn.redirect(redirect_path)
+                                }
+                                Err(_) => conn.set_status_code(HttpStatusCode::NotFound).no_body(),
                             }
                         }
+                        _ => conn.set_status_code(HttpStatusCode::NotFound).no_body(),
                     }
+                }
+                _ => conn.set_status_code(HttpStatusCode::MethodNotAllowed).no_body()
+            }
+        })
+        .run().await
+}
+
+/// HTML テンプレートにコンテンツを埋め込む
+pub fn html(path: &[&str], content: &str) -> String {
+    format!(
+        include_str!("../data/static/index.html"),
+        title = format!("Index of /{}", path.join("/")),
+        content = content
+    )
+}
+
+/// Err => 404
+/// Ok(None) => redirect raw endpoint
+/// Ok(Some(bytes)) => serve bytes
+pub async fn docs_routing(path: &[&str]) -> std::io::Result<Option<String>> {
+    let builder = match FileContentBuilder::base(BASE_DIR).path_url_segs(path).check_file_exists().await {
+        Ok(f) => f,
+        Err(d) => match d {
+            Some(dir) => return Ok(Some(md_dir_render(dir, path).await)),
+            None => return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "File not found")),
+        }
+    };
+    let mut file = builder.build().await?;
+    if file.mime_type != "text/markdown; charset=utf-8" {
+        return Ok(None);
+    }
+    let mut buf = String::new();
+    let _bytes = file.file.read_to_string(&mut buf).await?;
+    let content = md_to_html_gfm_highlight(&buf);
+    Ok(Some(html(path, &content)))
+}
+
+/// ディレクトリ一覧を Markdown で生成して HTML 化
+/// index.md があれば末尾に追加
+pub async fn md_dir_render(dir: Vec<DirEntryInfo>, path: &[&str]) -> String {
+    let mut path_with_index = if path == [""] {
+        vec![]
+    } else {
+        path.to_vec()
+    };
+    path_with_index.push("index.md");
+    let index_md: Option<String> = match FileContentBuilder::base(BASE_DIR).path_url_segs(&path_with_index).build().await {
+        Ok(mut file) => {
+            if file.mime_type != "text/markdown; charset=utf-8" {
+                None
+            } else {
+                let mut buf = String::new();
+                match file.file.read_to_string(&mut buf).await {
+                    Err(_) => None,
+                    Ok(_) => Some(buf),
                 }
             }
         }
-
-        // Rangeヘッダーがない場合は全体を返す
-        let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).ok();
-        return HttpResponse::Ok().body(buffer);
+        Err(_) => None,
+    };
+    let mut files: Vec<&str> = Vec::new();
+    let mut dirs: Vec<&str> = Vec::new();
+    for entry in dir.iter() {
+        if entry.kind.is_dir() {
+            let opt_dir_name = entry.path.file_name().and_then(|n| n.to_str());
+            if let Some(dir_name) = opt_dir_name {
+                if ! dir_name.starts_with(".") {
+                    dirs.push(dir_name);
+                }
+            }
+        } else if entry.kind.is_file() {
+            let opt_file_name = entry.path.file_name().and_then(|n| n.to_str());
+            if let Some(file_name) = opt_file_name {
+                if ! file_name.starts_with(".") {
+                    files.push(file_name);
+                }
+            }
+        }
     }
-
-    HttpResponse::NotFound().body("記事が見つかりません")
-}
-
-async fn root_page() -> impl Responder {
-    let file_path = "./data/index.html";
-    if let Ok(content) = fs::read_to_string(file_path) {
-        HttpResponse::Ok().content_type("text/html").body(content)
-    } else {
-        HttpResponse::NotFound().body("ルートページが見つかりません")
-    }
-}
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    HttpServer::new(|| {
-        App::new()
-            .route("/", web::get().to(root_page))
-            .route("/articles/{year}/{month}", web::get().to(list_articles_by_month))
-            .route("/article/raw/{year}/{month}/{article}", web::get().to(get_article_raw))
-    })
-    .bind(("0.0.0.0", 88))?
-    .run()
-    .await
+    files.sort_unstable();
+    dirs.sort_unstable();
+    let mut md = format!("# Index of /{}",
+        path.iter().enumerate().map(|(i, p)| {
+            let link = if i == path.len() - 1 {
+                // 最後はリンクなし
+                p.to_string()
+            } else {
+                let href = format!("/{}", url_encode(&path[..=i].join("/")));
+                format!("[{}]({})", p, href)
+            };
+            link
+        }).collect::<Vec<_>>().join("/")
+    );
+    md.push_str(
+        &match dirs.iter().map(|d| format!("- [{}]({}/{})", d, url_encode(path.last().map_or("", |v| v)), url_encode(d))).collect::<Vec<_>>().join("\n") {
+            s if s.is_empty() => "".to_string(),
+            s => format!("\n\n# Directories\n\n{}", s),
+        }
+    );
+    md.push_str(
+        &match files.iter().map(|f| format!("- [{}]({}/{})", f, url_encode(path.last().map_or("", |v| v)), url_encode(f))).collect::<Vec<_>>().join("\n") {
+            s if s.is_empty() => "".to_string(),
+            s => format!("\n\n# Files\n\n{}", s),
+        }
+    );
+    md.push_str(
+        &match index_md {
+            Some(content) => format!("\n\n---\n\n{}", content),
+            None => "".to_string(),
+        }
+    );
+    let content = md_to_html_gfm_highlight(&md);
+    html(path, &content)
 }
