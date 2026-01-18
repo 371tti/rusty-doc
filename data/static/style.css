@@ -80,7 +80,6 @@ body {
     width: 100%;
     position: relative;
 }
-
 main {
     padding: 10mm 10mm;
     max-width: 300mm;
@@ -90,6 +89,16 @@ article {
     letter-spacing: 0.1em;
     line-height: 2.0em;
     display: block;
+}
+footer {
+    max-width: 300mm;
+    margin: 0 auto;
+    padding: 10mm 10mm;
+}
+hr {
+    margin-top: 10mm;
+    border: none;
+    border-top: 1px solid var(--color-bg-2);
 }
 h1 {
     font-size: 2em;
