@@ -1,9 +1,38 @@
-/* 
-LinerCSS
-author: 371tti,
-license: MIT
-version: 0.4.1
-*/
+@font-face {
+    font-family: "UDEV Gothic HSLG";
+    src: url("/raw/static/fonts/UDEVGothicHSLG-Regular.woff2") format("truetype");
+    font-weight: 400;
+    font-style: normal;
+    font-display: fallback;
+    size-adjust: 100%;
+}
+
+@font-face {
+    font-family: "UDEV Gothic HSLG";
+    src: url("/raw/static/fonts/UDEVGothicHSLG-Italic.woff2") format("truetype");
+    font-weight: 400;
+    font-style: italic;
+    font-display: fallback;
+    size-adjust: 100%;
+}
+
+@font-face {
+    font-family: "UDEV Gothic HSLG";
+    src: url("/raw/static/fonts/UDEVGothicHSLG-Bold.woff2") format("truetype");
+    font-weight: 700;
+    font-style: normal;
+    font-display: fallback;
+    size-adjust: 100%;
+}
+
+@font-face {
+    font-family: "UDEV Gothic HSLG";
+    src: url("/raw/static/fonts/UDEVGothicHSLG-BoldItalic.woff2") format("truetype");
+    font-weight: 700;
+    font-style: italic;
+    font-display: fallback;
+    size-adjust: 100%;
+}
 
 :root {
     --color-bg-0: #0f1419;
@@ -19,16 +48,13 @@ version: 0.4.1
 @view-transition {
     navigation: auto;
 }
+
 * {
-    @import url("https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&family=Noto+Sans:ital,wght@0,100..900;1,100..900&family=Noto+Serif+JP:wght@200..900&family=Noto+Serif:ital,wght@0,100..900;1,100..900&display=swap");
     font-family:
-        Consolas,
-        Monaco,
-        "Andale Mono",
-        "Ubuntu Mono",
-        "Noto Sans JP",
-        sans-serif,
+        "UDEV Gothic HSLG",
         monospace;
+    font-variant-ligatures: common-ligatures contextual;
+    font-feature-settings: "liga" 1, "calt" 1;
     box-sizing: border-box;
     position: relative;
     overflow-wrap: break-word;
@@ -217,8 +243,8 @@ blockquote.quote-note::before {
     top: 6mm;
 
     background-color: var(--color-text-0);
-    mask: url("/raw/assets/icons/info-circle.svg") no-repeat center / contain;
-    -webkit-mask: url("/raw/assets/icons/info-circle.svg") no-repeat center /
+    mask: url("/raw/static/icons/info-circle.svg") no-repeat center / contain;
+    -webkit-mask: url("/raw/static/icons/info-circle.svg") no-repeat center /
         contain;
 }
 blockquote.quote-note::after {
@@ -239,8 +265,8 @@ blockquote.quote-tip::before {
     top: 6mm;
 
     background-color: var(--color-text-0);
-    mask: url("/raw/assets/icons/bulb.svg") no-repeat center / contain;
-    -webkit-mask: url("/raw/assets/icons/bulb.svg") no-repeat center /
+    mask: url("/raw/static/icons/bulb.svg") no-repeat center / contain;
+    -webkit-mask: url("/raw/static/icons/bulb.svg") no-repeat center /
         contain;
 }
 blockquote.quote-tip::after {
@@ -261,8 +287,8 @@ blockquote.quote-warning::before {
     top: 6mm;
 
     background-color: var(--color-text-0);
-    mask: url("/raw/assets/icons/alert-triangle.svg") no-repeat center / contain;
-    -webkit-mask: url("/raw/assets/icons/alert-triangle.svg") no-repeat center /
+    mask: url("/raw/static/icons/alert-triangle.svg") no-repeat center / contain;
+    -webkit-mask: url("/raw/static/icons/alert-triangle.svg") no-repeat center /
         contain;
 }
 blockquote.quote-warning::after {
@@ -284,8 +310,8 @@ blockquote.quote-important::before {
     top: 6mm;
 
     background-color: var(--color-text-0);
-    mask: url("/raw/assets/icons/exclamation-mark.svg") no-repeat center / contain;
-    -webkit-mask: url("/raw/assets/icons/exclamation-mark.svg") no-repeat center /
+    mask: url("/raw/static/icons/exclamation-mark.svg") no-repeat center / contain;
+    -webkit-mask: url("/raw/static/icons/exclamation-mark.svg") no-repeat center /
         contain;
 }
 blockquote.quote-important::after {
@@ -307,8 +333,8 @@ blockquote.quote-caution::before {
     top: 6mm;
 
     background-color: var(--color-text-0);
-    mask: url("/raw/assets/icons/circle-rectangle.svg") no-repeat center / contain;
-    -webkit-mask: url("/raw/assets/icons/circle-rectangle.svg") no-repeat center /
+    mask: url("/raw/static/icons/circle-rectangle.svg") no-repeat center / contain;
+    -webkit-mask: url("/raw/static/icons/circle-rectangle.svg") no-repeat center /
         contain;
 }
 blockquote.quote-caution::after {
@@ -318,15 +344,19 @@ code {
     /* background: var(--color-bg-1); */
     padding: 2px 4px;
     border-radius: 4px;
-    font-family: Consolas, "SF Mono", "JetBrains Mono", monospace;
     font-size: 0.9em;
+    font-family: "UDEV Gothic HSLG", monospace;
+    font-variant-ligatures: common-ligatures contextual;
+    font-feature-settings: "liga" 1, "calt" 1;
 }
 pre {
     /* background: var(--color-bg-1); */
     padding: 5mm;
     border-radius: 4px;
-    font-family: Consolas, "SF Mono", "JetBrains Mono", monospace;
     overflow: auto;
+    font-family: "UDEV Gothic HSLG", monospace;
+    font-variant-ligatures: common-ligatures contextual;
+    font-feature-settings: "liga" 1, "calt" 1;
 }
 img, image {
     border-radius: 1mm;
@@ -456,8 +486,8 @@ a.heading-link::after {
     opacity: 0;
     transition: opacity var(--transition-duration) var(--transition-timing);
     background-color: currentColor;
-    mask: url("/raw/assets/icons/link.svg") no-repeat center / contain;
-    -webkit-mask: url("/raw/assets/icons/link.svg") no-repeat center / contain;
+    mask: url("/raw/static/icons/link.svg") no-repeat center / contain;
+    -webkit-mask: url("/raw/static/icons/link.svg") no-repeat center / contain;
     pointer-events: none;
 }
 a.heading-link:hover::after,

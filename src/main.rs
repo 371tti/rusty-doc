@@ -21,6 +21,11 @@ async fn main() -> std::io::Result<()> {
             match conn.req.method() {
                 HttpMethod::GET => {
                     match conn.path_segs().as_ref() {
+                        ["raw","static", path @ ..] => {
+                            let content = FileContentBuilder::base("./data/static/").path_url_segs(path).inline();
+                            conn.add_header("Cache-Control", "public, max-age=300, must-revalidate")
+                                .file_body(content).await.unwrap_or_else(|p| p.connection)
+                        }
                         ["raw", path @ ..] => {
                             let content = FileContentBuilder::base(BASE_DIR).path_url_segs(path).inline();
                             conn.file_body(content).await.unwrap_or_else(|p| p.connection)
@@ -158,7 +163,7 @@ pub async fn md_dir_render(dir: Vec<DirEntryInfo>, path: &[&str]) -> String {
     );
     md.push_str(
         &match index_md {
-            Some(content) => format!("\n\n---\n\n\\> from index.md\n\n{}", content),
+            Some(content) => format!("\n\n---\n\n\\|> from index.md\n\n{}", content),
             None => "".to_string(),
         }
     );

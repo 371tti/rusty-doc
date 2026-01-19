@@ -140,7 +140,7 @@
 
         // Wrap
         const wrapBtn = makeIconButton(
-            "/raw/assets/icons/arrow-back-up.svg",
+            "/raw/static/icons/arrow-back-up.svg",
             "Wrap",
             "codeblock-wrap",
             false,
@@ -155,7 +155,7 @@
 
         // Copy
         const copyBtn = makeIconButton(
-            "/raw/assets/icons/copy.svg",
+            "/raw/static/icons/copy.svg",
             "Copy",
             "codeblock-copy",
         );
@@ -167,11 +167,11 @@
             const img = copyBtn.querySelector("img");
             copyBtn.setAttribute("aria-label", "Copied");
             copyBtn.title = "Copied";
-            if (img) img.src = "/raw/assets/icons/copy-check.svg";
+            if (img) img.src = "/raw/static/icons/copy-check.svg";
             setTimeout(() => {
                 copyBtn.setAttribute("aria-label", "Copy");
                 copyBtn.title = "Copy";
-                if (img) img.src = "/raw/assets/icons/copy.svg";
+                if (img) img.src = "/raw/static/icons/copy.svg";
             }, 1200);
         });
         actions.appendChild(copyBtn);
