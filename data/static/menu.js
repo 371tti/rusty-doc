@@ -33,6 +33,101 @@ window.RustyDocCommands = window.RustyDocCommands || {
     list() { return []; }
 };
 
+// Share機能
+class ShareFeature {
+    static getSharePayload() {
+        const url = location.href;
+        const title = document.title || 'Untitled';
+        // description欲しければmetaから拾うなど
+        return { url, title, text: title };
+    }
+
+    static async copyText(text) {
+        // Clipboard API
+        if (navigator.clipboard && window.isSecureContext) {
+            await navigator.clipboard.writeText(text);
+            return true;
+        }
+        // fallback: execCommand
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        const ok = document.execCommand('copy');
+        ta.remove();
+        return ok;
+    }
+
+    static async shareAuto() {
+        const { url, title, text } = ShareFeature.getSharePayload();
+
+        // まず Web Share API（主にスマホ）
+        if (navigator.share) {
+            try {
+                // navigator.canShare があればチェック（なくてもOK）
+                if (!navigator.canShare || navigator.canShare({ url, title, text })) {
+                    await navigator.share({ url, title, text });
+                    return { kind: 'share-sheet' };
+                }
+            } catch (_) {
+                // ユーザーキャンセル等は無視してフォールバック
+            }
+        }
+
+        // 次にクリップボード（主にPC）
+        const copied = await ShareFeature.copyText(url);
+        if (copied) return { kind: 'clipboard', copied: url };
+
+        // 最終手段
+        try { window.prompt('Copy this URL:', url); } catch (_) {}
+        return { kind: 'prompt', copied: url };
+    }
+
+    static async copyUrl() {
+        const { url } = ShareFeature.getSharePayload();
+        await ShareFeature.copyText(url);
+        return { kind: 'clipboard', copied: url };
+    }
+
+    static async copyMarkdownLink() {
+        const { url, title } = ShareFeature.getSharePayload();
+        const md = `[${title}](${url})`;
+        await ShareFeature.copyText(md);
+        return { kind: 'clipboard', copied: md };
+    }
+
+    static register() {
+        window.RustyDocCommands.register({
+            cmd: 'Share',
+            desc: 'Share this page (mobile: share sheet / desktop: copy URL)',
+            keepOpen: false,
+            sortIndex: 85,
+            getCandidates: (parts) => {
+                if (!parts || parts.length < 1 || parts[0].toLowerCase() !== 'share') return [];
+                const arg = (parts[1] || '').toLowerCase();
+
+                const candidates = [
+                    { cmd: 'Share', desc: 'Auto (share sheet or copy URL)', sortIndex: 85, action: () => ShareFeature.shareAuto() },
+                    { cmd: 'Share Url', desc: 'Copy page URL', sortIndex: 84, action: () => ShareFeature.copyUrl() },
+                    { cmd: 'Share Markdown', desc: 'Copy [title](url)', sortIndex: 83, action: () => ShareFeature.copyMarkdownLink() },
+                ];
+
+                if (!arg) return candidates;
+                return candidates.filter(c => c.cmd.toLowerCase().includes(`share ${arg}`));
+            },
+            action: (args) => {
+                const a = (args[0] || '').toLowerCase();
+                if (a === 'url') return ShareFeature.copyUrl();
+                if (a === 'markdown') return ShareFeature.copyMarkdownLink();
+                return ShareFeature.shareAuto();
+            }
+        });
+    }
+}
 
 // Scroll機能
 class ScrollFeature {
@@ -761,6 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
             ScrollFeature.register();
             MatchFeature.register();
             SectionFeature.register();
+            ShareFeature.register();
 
             // コマンド登録（外部API経由）
             [

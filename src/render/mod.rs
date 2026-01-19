@@ -1,3 +1,4 @@
+/// すごく、汚い...のでリファクタリング必須...
 
 use std::{cell::RefCell, collections::HashMap};
 
@@ -21,7 +22,6 @@ pub fn md_to_html_gfm_highlight(md: &str) -> String {
     opt.extension.spoiler = true;      // ||spoiler|| :contentReference[oaicite:7]{index=7}
     opt.extension.wikilinks_title_after_pipe = true; // [[Link|Title]] :contentReference[oaicite:9]{index=9}
     opt.extension.highlight = true;    // ==highlight== :contentReference[oaicite:8]{index=8}
-    // opt.render.unsafe_ = true; // 生HTMLを許可したいなら
 
     // ハイライト
     let adapter = SyntectAdapter::new(Some("base16-ocean.dark"));

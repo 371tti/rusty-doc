@@ -1,7 +1,4 @@
-# 教科書置き場
-私が知れてる範囲での学問とやらの収録
-
-## 学術体系
+# 学術体系
 学術(英: Academia)とは、知識の体系的な探求と理解を目的とした人間の活動領域であり、多様な分野に分かれている。
 体系(英: Taxonomy)とは、分類や整理の方法や原理を指す。
 
@@ -10,13 +7,9 @@
 ## Tree
 以下に、体系化された主要な学術分野を示す。
 
-> [!tip]
-> 以下の木を育ててる...  
-> ときどき剪定したり生やしたりしてる...
-
 - 学術（Academia）
-  - [形式科学（Formal sciences）](textbook/formal_sciences)
-    - [数学](textbook/formal_sciences/mathematics)
+  - [形式科学（Formal sciences）](formal_sciences)
+    - [数学](formal_sciences/mathematics)
       - 代数学
       - 幾何学
       - 解析学
@@ -28,7 +21,7 @@
         - 確率論
         - 数理統計
 
-    - [計算機科学（Computer Science）](textbook/formal_sciences/computer_science)
+    - [計算機科学（Computer Science）](formal_sciences/computer_science)
       - 理論計算機科学
         - 計算理論
         - オートマトン・形式言語

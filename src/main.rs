@@ -1,7 +1,11 @@
 
+use std::sync::Arc;
+
+use dashmap::DashMap;
 use kurosabi::{connection::file::{DirEntryInfo, FileContentBuilder}, http::{HttpMethod, HttpStatusCode}, server::tokio::KurosabiTokioServerBuilder, utils::url_encode};
 use rusty_doc::render::md_to_html_gfm_highlight;
-use tokio::io::AsyncReadExt;
+use tf_idf_vectorizer::TFIDFVectorizer;
+use tokio::{io::AsyncReadExt, sync::RwLock};
 
 pub const BASE_DIR: &str = "./data/";
 
@@ -47,6 +51,11 @@ async fn main() -> std::io::Result<()> {
             }
         })
         .run().await
+}
+
+pub struct RustyDocContext {
+    pub index: Arc<TFIDFVectorizer>,
+    pub catche: Arc<DashMap<String, String>>,
 }
 
 /// HTML テンプレートにコンテンツを埋め込む
@@ -123,7 +132,7 @@ pub async fn md_dir_render(dir: Vec<DirEntryInfo>, path: &[&str]) -> String {
     }
     files.sort_unstable();
     dirs.sort_unstable();
-    let mut md = format!("# Index of /{}",
+    let mut md = format!("# Index of [root](/)/{}",
         path.iter().enumerate().map(|(i, p)| {
             let link = if i == path.len() - 1 {
                 // 最後はリンクなし
@@ -149,7 +158,7 @@ pub async fn md_dir_render(dir: Vec<DirEntryInfo>, path: &[&str]) -> String {
     );
     md.push_str(
         &match index_md {
-            Some(content) => format!("\n\n---\n\n{}", content),
+            Some(content) => format!("\n\n---\n\n\\> from index.md\n\n{}", content),
             None => "".to_string(),
         }
     );
