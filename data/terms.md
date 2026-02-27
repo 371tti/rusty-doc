@@ -1,4 +1,9 @@
-# Terms of Service
+---
+title: Terms of Service
+authors: 
+  - 371tti
+is_complete: true
+---
 
 These Terms of Service ("Terms") govern the use of this website and its
 associated services (the "Service"). By accessing or using the Service,

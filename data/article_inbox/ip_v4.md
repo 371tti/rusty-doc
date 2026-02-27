@@ -1,3 +1,9 @@
+---
+title: IPv4について
+authors: 
+  - 371tti
+is_complete: false
+---
 # IPv4について
 
 インターネット上で通信するためのプロトコル。version4は32bitのアドレス空間をもっていて、最大42億の機器を識別可能。

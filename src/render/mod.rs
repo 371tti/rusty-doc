@@ -310,13 +310,13 @@ fn strip_marker_from_first_paragraph<'a>(para: &'a AstNode<'a>) -> Option<&'stat
         _ => return None,
     };
 
-    // Text ノードの先頭から marker 部分だけ削る
+    // Text ノードの先頭から marker 部分だけ削る（UTF-8文字境界安全）
     {
         let mut d = first.data.borrow_mut();
         if let NodeValue::Text(t) = &mut d.value {
-            // marker 部分を削除して残りを左詰め
             let after = t.trim_start(); // parse_marker_prefix も trim_start してる前提
-            let rest = &after[cut..];
+            // cutは「消すべき文字数」なので、chars().take(cut)でスキップ
+            let rest: String = after.chars().skip(cut).collect();
             *t = std::borrow::Cow::Owned(rest.trim_start().to_string());
         }
     }
@@ -397,5 +397,14 @@ pub fn inject_quote_alerts<'a>(arena: &'a comrak::Arena<'a>, root: &'a AstNode<'
 
         // 元の BlockQuote を消す
         bq.detach();
+    }
+}
+
+#[derive(Default, Clone)]
+pub struct MarkdownRenderer;
+
+impl MarkdownRenderer {
+    pub fn render(&self, md: &str) -> String {
+        md_to_html_gfm_highlight(md)
     }
 }

@@ -1,3 +1,10 @@
+---
+title: Rusty doc の使い方
+authors:
+  - 371tti
+is_complete: false
+---
+
 # Rusty doc の使い方
 
 ディレクトリベースで  

@@ -1,3 +1,10 @@
+---
+title: Rusty Doc - Root Directory
+authors:
+  - 371tti
+is_complete: false
+---
+
 # Rusty Doc へようこそ。
 高品質なドキュメントを美しいWebページとして提供するサイト
 > [!NOTE]

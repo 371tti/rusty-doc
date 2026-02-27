@@ -1,3 +1,9 @@
+---
+title: サンプル記事1
+authors: 
+  - 371tti
+is_complete: true
+---
 # MD記法 標準 + 拡張
 [rawデータはこちら](/raw/samples/post1.md)
 

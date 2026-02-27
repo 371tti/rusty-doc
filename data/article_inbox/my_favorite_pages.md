@@ -1,3 +1,9 @@
+---
+title: 私の好きなWebページ集
+authors: 
+    - 371tti
+is_complete: false
+---
 # 私の好きなWebページ集
 私がよく見る、参考にしている、役に立った、面白いと思ったWebページのリストです。
 

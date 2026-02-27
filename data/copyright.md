@@ -1,4 +1,9 @@
-# Copyright and Content Ownership
+---
+title: Copyright and Content Ownership
+authors: 
+  - 371tti
+is_complete: true
+---
 
 ## Website System and Platform
 

@@ -1,2 +1,3 @@
 /target
-data/.video/
+.gitignore
+/data/.*
