@@ -30,7 +30,6 @@ async fn main() -> std::io::Result<()> {
                             Err(_) => conn.set_status_code(HttpStatusCode::InternalServerError).no_body(),
                         },
                         ["raw", path @ ..] => {
-                            conn.c.ensure_el_outputs(path).await;
                             let content = FileContentBuilder::base(BASE_DIR).path_url_segs(path).inline();
                             if path.first() == Some(&"static") {
                                 conn.add_header("Cache-Control", "public, max-age=300, must-revalidate").file_body(content).await.unwrap_or_else(|p| p.connection)
